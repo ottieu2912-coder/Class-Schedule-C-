@@ -31,13 +31,18 @@ public:
 
 };
 
+//Depth-First Search Algorithm for the classes
 void traverse(std::array<std::array<std::string, 3>, 3>& path, Class* curr, int row, int col, std::list<Class*>& classes) {
+    //Class name is put in the first row of the first column in the path variable.
     path.at(row).at(col) = curr->name;
+	//The class is removed from the list of classes to avoid duplicates in the path variable.
     classes.remove(curr);
+    //We search through the corequisites of every class in the connected component.
     for (Class* s : curr->corequisite) {
         while(path.at(row).at(col) != "") row++;
         if (std::find(classes.begin(), classes.end(), s) != classes.end()) traverse(path, s, row, col, classes);
     }
+	//We search through the future class of every class in the connected component.
     for (Class* s : curr->future) {
         row = 0;
         col++;
@@ -47,7 +52,9 @@ void traverse(std::array<std::array<std::string, 3>, 3>& path, Class* curr, int 
     }
 }
 
+//Backward Depth-First Search Algorithm to find the prerequisite class is in the first class of the connected component, which is the farthest prerequisite class from the current class stored in the curr variable.
 int reverse(Class*& lowest, Class* curr, int& temp, int& pathLength) {
+    //The pathLength variable records the distance of farthest prerequisite class and the current class. When a temp is found to be greater, pathLength's value is replaced by that temp's value.
     if (curr->prequisite.empty()) {
         temp++;
         if (temp > pathLength) {
@@ -56,7 +63,9 @@ int reverse(Class*& lowest, Class* curr, int& temp, int& pathLength) {
         }
         else return pathLength;
     }
+	//Each time a prerequisite class is found, temp is incremented to record the distance from the current class.
     temp++;
+	//The connected component is searched through the prerequisites of every class to find the prerequisite class that is farthest from the current class. To see which class is the farthest, temp is assigned to each of them to remember the distance.
     for (Class* i : curr->prequisite) {
         int now = temp;
         pathLength = reverse(lowest, i, temp, pathLength);
@@ -65,39 +74,50 @@ int reverse(Class*& lowest, Class* curr, int& temp, int& pathLength) {
     return pathLength;
 }
 
+//Form a connected component of classes that are prerequisites, corequisites, and future classes of the current class and copy it to the schedule, row by row.
 std::array<std::array<std::string, 3>, 3> connectedComponent(Class* curr, std::array<std::array<std::string, 3>, 3>& schedule, std::list<Class*>& classes) {
     std::array<std::array<std::string, 3>, 3> path{};
     int temp = 0;
     int pathLength = 0;
     int col = 0;
     int row = 0;
+	//Find the first class of the connected component
     reverse(curr, curr, temp, pathLength);
+	//Create a connected component of classes in the path variable
     traverse(path, curr, row, col, classes);
     int i = 0;
+	//Put the classes in the connected component into the schedule by searching for an empty spot in the schedule, where r and c are the row and column of the path variable, respectively, and i and j are the row and the column of the schedule respectively.
     for (int c = 0; c < 3; c++) {
         int r = 0;
         if (path.at(r).at(c) == "") continue;
         std::array<std::array<std::string, 3>, 3> temp = schedule;
+		//Iterate through the classes in every row, r, and column, c, of the path variable.
         while (path.at(r).at(c) != "" && r < 3) {
             int j = 0;
+            //Search for the empty spot of the row j in the schedule.
             while (schedule.at(j).at(i) != "" && j < 2) {
                 j++; 
             }
+			//If the row is full, reset the schedule to the previous state and move to the next column
             if (j==2&&schedule.at(j).at(i) != "") {
                 schedule = temp;
                 i++;
             }
-            else { 
+            else {
+				//If there is an empty spot, we put the class in the path variable into the schedule and move to the next row of the column.
                 schedule.at(j).at(i) = path.at(r).at(c);
                 r++;
             }
+			//If every row of the column in the path variable is searched, we break out of the loop and move to the next column of the path variable.
             if (r == 3)break;
         }
+		//We move to the next column of the schedule.
         i++;
     }
     return path;
 }
 
+//Iterate through every class in the list and apply the algorithm to form a proper schedule
 void scheduling(std::array<std::array<std::string, 3>, 3>& schedule, std::list<Class*>& classes) {
     while (!classes.empty()){ 
         Class* curr = classes.front();
@@ -142,12 +162,16 @@ int main()
 }
 
 /*
-Problem: Create a schedule of 9 classes that is proper. A proper class is a class in which every corequisite and prerequisite is fulfilled to be taken.
+Problem: Create a schedule of 9 classes that is proper. A proper schedule has every class in which the corequisites and prerequisites are fulfilled when taken.
 
 Constraint: There are exactly 9 classes, and the selection is always valid for a schedule.
 
-Approach: We select one class and create an order of corequisite and prequisite that should be taken. We do this by first identifying the first class in the series with no prerequisite and then search from it to the end of the series.
-From this order, we search every possible row and column in the schedule to fit in. We search row by row and then column by column. Because we search row by row, long series are guaranteed to have enough columns to fit in.
+Approach: We form a graph of classes with three types of edges: prerequisites, corequisites, and future classes.
+The prerequisites classes are the classes that must be taken before the current class.
+The corequisites classes are the classes that must be taken with the current class.
+The future classes are the classes that can be taken after the current class.
+Each connected component of the graph is the relationship between the classes in that component. We find this component and copy it to the schedule.
+The connected component is found by finding the first prerequisite class and search through every possible corequisite and future classes.
 
 Complexity:
 Space: Because we need an order of every class, we have a space complexity of O(n) to create these orders.
